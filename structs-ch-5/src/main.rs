@@ -5,27 +5,22 @@ struct Rectangle {
 }
 
 impl Rectangle {
-    fn area(&self) -> u32 {
-        self.width * self.height
+    fn square(size: u32) -> Rectangle {
+        Rectangle {
+            width: size,
+            height: size
+        }
     }
-}
-// The impl block 
+    // All functions defined in the impl block are called association functions, 
+    // because they're associated with the type named after the impl. 
+    
+    // We can define associated functions that don’t have self as their first parameter (and thus are not methods) 
+    // because they don’t need an instance of the type to work with.
 
+    // Associated functions that aren’t methods are often used for constructors that will return a new instance of the struct.
+}
 fn main() {
-    let rect1 = Rectangle {
-        width: 30,
-        height: 50,
-    };
+    sq_size = Rectangle::square(3);
 
-    println!(
-        "The area of the rectangle is {} square pixels.", 
-        rect1.area()
-    );
+    println!("Square size: {}", sq_size);
 }
-
-// Methods are similar to functions: we declare them with the fn keyword and a name, 
-// they can have parameters and a return value, 
-// and they contain some code that’s run when the method is called from somewhere else. 
-
-// Unlike functions, methods are defined within the context of a struct (or an enum or a trait object) and their first parameter is always self
-// which represents the instance of the struct the method is being called on. 
