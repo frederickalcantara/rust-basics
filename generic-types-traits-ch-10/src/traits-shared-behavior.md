@@ -324,4 +324,9 @@ fn return_summarizable(switch: bool) -> impl Summary {
 }
 ```
 
-Returning a `NewsArticle` or `Tweet` isn't allowed due to restrictions around how the `impl Trait` syntax is implemented in the compiler. 
+Returning a `NewsArticle` or `Tweet` isn't allowed due to restrictions around how the `impl Trait` syntax is implemented in the compiler.
+
+
+## Fixing the `largest` Function with Trait Bounds
+
+Traits allow us specify the behavior that we want to use using the generic type parameter's bounds. 
