@@ -11,3 +11,4 @@ Similarly, we must annotate lifetimes when the lifetime of references could be r
 ## Preventing Dangling References with Lifetimes
 
 The main goal of lifetimes is to prevent dangling references, which causes a program to reference data other than the data it's intended to reference. 
+
