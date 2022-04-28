@@ -330,3 +330,135 @@ Returning a `NewsArticle` or `Tweet` isn't allowed due to restrictions around ho
 ## Fixing the `largest` Function with Trait Bounds
 
 Traits allow us specify the behavior that we want to use using the generic type parameter's bounds. 
+
+Example: Going back to this example, a defintion of the `largest` function that uses generic type parameters but doesn't compile yet
+
+```
+fn largest<T>(list: &[T]) -> T {
+    let mut largest = list[0];
+
+    for &item in list {
+        if item > largest {
+            largest = item;
+        }
+    }
+
+    largest
+}
+
+fn main() {
+    let number_list = vec![34, 50, 25, 100, 65];
+
+    let result = largest_i32(&number_list);
+    println!("The largest number is {}", result);
+
+    let char_list = vec!['y', 'm', 'a', 'q'];
+
+    let result = largest_char(&char_list);
+    println!("The largest char is {}", result);
+}
+```
+
+The code won't compile because we want to compare types of value `T` in the body, we can only use types whose values can be ordered. 
+If we want to enable comparisons, the standard library has the `std::cmp::PartialOrd` trait that we implement on types. 
+
+In the body of `largest`, we wanted to compare 2 values of type `T` using the greater than (`>`) operator. Because that operator is defined as a default method on the standard library trait `std::cmp::PartialOrd`, we need to specify the `PartialOrd` in the trait bounds for `T` so the `largest` function can work on slices of any type that can compare. We don't need to bring `PartialOrd` into scope because it's in the prelude. 
+
+Change the signature of `largest` to look like this: 
+
+```
+fn largest<T: PartialOrd>(list: &[T]) => T {}
+```
+
+THe new error here is `cannot move out of type [T], a non-copy slice`. With the non-generic versions of the `largest` function, we were tryign to find the largest `i32` or `char`. Types like `i32` and `char` have a known size that's stored on the stack, so they implement the `Copy` trait. When we have made the `largest` function generic, it became possible for the `list` parameter to have types in it that don't implement the `Copy` trait. This results in us not being able to move the value out of `list[0]` and into the `largest` variable, resulting in an error. 
+
+To call this code with only the types that implement the `Copy` trait, we can add `Copy` to the trait bounds of `T`! 
+
+Example: A working definition of the `largest` function that works on any generic type that implements the `PartialOrd` and `Copy` traits. 
+
+```
+fn largest<T: PartialOrd + Copy>(list: &[T]) -> T {
+    let mut largest = list[0];
+
+    for &item in list {
+        if item > largest {
+            largest = item;
+        }
+    }
+
+    largest
+}
+
+fn main() {
+    let number_list = vec![34, 50, 25, 100, 65];
+
+    let result = largest(&number_list);
+    println!("The largest number is {}", result);
+
+    let char_list = vec!["y", "m", "a", "q"];
+
+    let result = largest(&char_list);
+    println!("The largest char is {}", result);
+}
+```
+
+The code will compile now that we added a trait. 
+
+If we don't want to restrict the `largest` function to the types that implement the `Copy` trait, we could specify that `T` has the trait bound `Clone` instead of `Copy`. 
+Then we could clone each value in the slice when we want the `largest` function to have ownership. Using the `clone` function means we're potentially making more heap allocations in the case of types that own heap data like `String`, and heap allocations can be slow if we're working with large amounts of data. 
+
+Another way we could implement `largest` is for the function to return a reference to a `T` value in the slice. If we change the return type to `&T` instead of `T`, thereby changing the body of the function to return a reference, we wouldn't need the `Clone` or `Copy` trait bounds and we could avoid heap allocations. 
+
+
+## Using Trait Bounds to Conditionally Implement Methods
+
+By using a trait bound with an `impl` block that uses generic type parameters, we can implement methods conditionally for types that implement the specified traits. 
+
+Example: Conditionally implement methods on a generic type depending on trait bounds
+
+```
+use std::fmt::Display;
+
+struct Pair<T> {
+    x: T,
+    y: T,
+}
+
+impl<T> Pair<T> {
+    fn new(x: T, y: T) -> Self {
+        Self { x, y }
+    }
+}
+
+impl<T: Display + PartialOrd> Pair<T> {
+    fn cmp_
+}
+```
+
+The type `Pair<T>` always implement the `new` function to return a new instance of `Pair<T>` (<ins>Note: Recall that `Self` is a type alias for the type of the `impl` block, which in this case is `Pair<T>`</ins>). 
+In the next `impl` block, `Pair<T>` only implements the `cmp_display` method if its inner type `T` implements the `PartialOrd` trait that enabled comparison **and** the `Display` trait that enables printing. 
+
+We can also conditionally implement a trait for any type that implements another trait.
+Implementations of a trait on any type that satisfies the trait bounds are called **blanket implementations** and are extensively used in the Rust standard library. 
+
+Example: The standard library implements the `ToString` trait on any type that implements the `Display` trait. The `impl` block in the standard library looks similar to this code: 
+
+```
+impl<T: Display> ToString for T {
+    ...
+}
+```
+
+Because the standard library has this blanket implementation, we can call the `to_string` method defined by the `ToString` trait on any type that implements the `Display` trait. 
+
+Example: We can turn integers into their corresponding `String` values like this because integers implement `Display`
+
+```
+let s = 3.to_string();
+```
+
+We can also conditionally implement a trait for any type that implements another trait. The compiler can then use the trait bound information to check that all the concrete types used with our code provide the correct behavior.
+
+In dynamically typed languages, we would get an error at runtime if we called a method on a type which didn’t define the method. But Rust moves these errors to compile time so we’re forced to fix the problems before our code is even able to run. Additionally, we don’t have to write code that checks for behavior at runtime because we’ve already checked at compile time. Doing so improves performance without having to give up the flexibility of generics.
+
+Another kind of generic is called **lifetimes**. Rather than ensuring that a type has the behavior that we want, lifetimes ensure that references are valid as long as we need them to be. 
