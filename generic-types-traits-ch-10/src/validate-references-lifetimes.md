@@ -342,9 +342,62 @@ If the compiler gets to the end of the 3 rules and there are still references fo
 
 These rules apply to `fn` definitions as well as `impl` blocks. 
 
-The first rule is that 
+The **first** rule is that each parameter that's a reference gets its own lifetime parameter. 
 
+Code Examples: 
 
+A function with one parameter gets one lifetime parameter: `fn foo<'a>(x: &'a i32)`
+A function with 2 parameters gets 2 paramteres: `fn foo<'a, 'b>(x: &'a i32, y: &'b i32)`
+
+The **second** rule is if there's exactly one input lifetime parameter, that lifetime is assigned to all output lifetime parameters: `fn foo<'a>(x: &'a i32) -> &'a i32`
+
+The **third** rule is if there are multiple input lifetime parameters, but one of them is `&self` or `&mut self` because this is a method, the lifetime of `self` is assigned to all output lifetime parameters. 
+This **third** rule makes methods nicer to read and write because fewer symbols are necessary. 
+
+Compiler Examples with Lifetime elisions: 
+
+The code example is lifetimes of the references in the signature of the `first_word` function. 
+
+The signature will start without any lifetimes associated with the references: 
+
+```
+fn first_word(s: &str) -> &str {}
+```
+
+The compiler applies the **first** rule, which specifies that each parameter gets its own lifetime. 
+
+It will use some form of lifetime parameter, in this case `&'a`. 
+
+```
+fn first_word<'a>(s: &'a str) -> &str {}
+```
+
+The **second rule** applies because there's exactly one input lifetime. The second rule specifies that the lifetime of the one input parameter gets assign to the output lifetime. 
+
+```
+fn first_word<'a>(s: &'a str) -> &'a str {}
+```
+
+All the references in this function signature have lifetimes, and the compiler can continue its analysis without needing the programmer to annotate the lifetimes in this function signature. 
+
+Code Example: lifetime elision reveiw with the `longest` function that has 2 parameters
+
+The signature will start without any lifetimes associated with the references: 
+
+```
+fn longest(x: &str, y: &str) -> &str {}
+```
+
+The **first** rule will be applied: each parameter gets its own lifetime. Now, we have 2 parameters instead of one, so there are 2 lifetimes; 
+
+```
+fn longest<'a, 'b>(x: &'a str, y: &'b str) -> &str {}
+```
+
+The second rule doesn't apply for our code because there is more than one input lifetime. 
+The third rule doesn't apply either because `longest` is a function rather than a method, so none of the parameters are `self`. 
+
+After working through all of the 3 rules, we still haven't figured out what the return's type lifetime is. 
 
 
 ## Lifetime Annotations in Method Definitions
