@@ -307,3 +307,66 @@ fn main() {
     let word = first_word(my_string_literal);
 }
 ```
+
+
+
+
+
+
+
+
+
+
+
+## Lifetime Annotations in Method Definitions
+
+When we implement methods on a struct with lifetimes, we use the same syntax as that of generic type parameters. 
+Where we declare and use the lifetime parameters depends on whether they're related to the struct fields or the method parameters and return values. 
+
+Lifetime names for struct fields always need to be declared after the `impl` keyword and then used after the struct's name, because those lifetimes are part of the struct's type. 
+
+In method signatures inside the `impl` block, references might be tied to the lifetime of references in the struct's fields, or they might be independent. Additionally, the lifetime elision rules often make it so that lifetime annotations aren't necessary in method signatures. 
+
+Example: `ImportantExcerpt` struct with a lifetime
+
+A method named `level` whose only parameter is a reference to `self` and whose return value is `i32`, which isn't a reference to anything: 
+
+```
+impl<'a> ImportantExcerpt<'a> {
+    fn level(&self) -> i32 {
+        3
+    }
+}
+```
+
+The lifetime parameter declaration after `impl` and its user after the type name are required, but we aren't required to annotate the lifetime of the reference to `self` because of the first elision rule. 
+
+Example: The 3rd lifetime elision rule applies
+
+```
+impl<'a> ImportantExcerpt<'a> {
+    fn announce_and_return_part(&self, announcement: &str) -> &str {
+        println!("Attention please: {}", announcement);
+        self.part
+    }
+}
+```
+
+There are 2 input lifetimes, so Rust applies the first lifetime elision rule and gives both `&self` and `announcement` their own lifetimes. Then, because one of the parameters is `&self`, the return type gets the lifetime of `&self`, and all lifetimes have been accounted for. 
+
+
+## The Static Lifetime
+
+One special lifetime is `'static`, which means that this reference **can live** for the entire duration of the program. 
+All string literals have the `'static` lifetime, which we can annotate as follows: 
+
+```
+let s: &'static str = "I have a static lifetime.";
+```
+
+The text of the string above is stored in the program's binary, which is always available. Therefore, the lifetime of all string literals is `'static`. 
+
+We might see suggestions to use the `'static` lifetime in error messages. But before specifying `'static` as the lifetime for a reference, think about whether the reference we have actually lives the entire lifetime of our program or not. We might consider whether we want it to live that long, even if it could. 
+
+Most of the time, the problem results from attempting to create a dangling reference or a mismatch of the available lifetimes. In these cases, the solution is fixing those problems, not specifying the `'static` lifetime. 
+
