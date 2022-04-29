@@ -222,12 +222,88 @@ In the example above, we've specified a lifetime parameter `'a` for the paramete
 
 When returning a reference from a function, the lifetime parameter for the return type needs to match the lifetime parameter for one of the parameters. If the reference return **doesn't** refer to one of the parameters, it must refer to a value created within this function, which would be a dangling reference because the value will go out of scope at the end of the function. 
 
-Example: Code that won't compile because the return value lifetime isn't related to the lifetime of the parameters at all. 
+Example: Compiling code when the reference return doesn't refer to one of the function parameters.
 
 ```
+fn main() {
+    let string1 = String::from("abcd");
+    let string2 = "xyz";
+
+    let result = longest(string1.as_str(), string2);
+    println!("The longest string is {}", result);
+}
+
 fn longest<'a>(x: &str, y: &str) -> &'a str {
     let result = String::from("really long string");
     result.as_str()
 }
 ```
 
+Code that won't compile because the return value lifetime isn't related to the lifetime of the parameters at all. 
+
+The problem is that `result` goes out of scope and gets cleaned up at the end of the `longest` function. We're also trying to return a reference to `result` from the function. 
+There's no way we can specify lifetime parameters that would change the dangling reference, and Rust won't let us create a dangling reference.  
+The best fix would be to return an owned data type rather than a reference so the calling function is then responsible for cleaning up the value. 
+
+Ultimately, lifetime syntax is about connecting the lifetimes of various parameters and return values of functions. Once they’re connected, Rust has enough information to allow memory-safe operations and disallow operations that would create dangling pointers or otherwise violate memory safety.
+
+
+## Lifetime Annotations in Struct Definitions
+
+Defined struct can not only hold owned types, they can also hold references. In the case of structs, there needs to be a lifetime annotation on every reference in the struct's definition. 
+
+Example: A struct that holds a reference, so its definition needs a lifetime annotation
+
+```
+struct ImportantExcerpt<'a> {
+    part: &'a str,
+}
+
+fn main() {
+    let novel = String::from("Call me Ishmael. Some years ago...")l
+    let first_sentence = novel.split('.').next().expect("Could not find a '.'");
+    let i = ImportantExcerpt {
+        part: first_sentence
+    }
+}
+```
+
+The struct has one field, `part`, that holds a string slice, which is a reference. As with generic data types, we declare the name of the generic lifetime parameter inside angle brackets after the name of the struct so we can use the lifetime parameter in the body of the struct definition. 
+This annotation means an instance of `ImportantExcept` can't outlive the reference it holds in its `part` field. 
+
+The `main` function here creates an instance of the `ImportantExcept` struct that holds a reference to the first sentence of the `String` owned by the variable `novel`. The data in novel exists before the `ImportantExcept` instance is created. Additionally, `novel` doesn't go out of scope until after the `ImportantExcept` goes out of scope, so the reference in the `ImportantExcept` instance is valid. 
+
+
+## Lifetime Elision
+
+Every reference has a lifetime and that we need to specify lifetime parameters for functions or structs that use references.
+
+```
+fn first_word(s: &str) -> &str {
+    let bytes = s.as_bytes();
+
+    for (i, &item) in bytes.iter().enumerate() {
+        if item == b' ' {
+            return &s[0..i];
+        }
+    }
+
+    &s[..]
+}
+
+fn main() {
+    let my_string = String::from("hello world");
+
+    // first_word works on slices of `String`s
+    let word = first_word(&my_string[..]);
+
+    let my_string_literal = "hello world";
+
+    // first_word works on slices of string literals
+    let word = first_word(&my_string_literal[..]);
+
+    // Because string literals *are* string slices already,
+    // this works too, without the slice syntax!
+    let word = first_word(my_string_literal);
+}
+```
