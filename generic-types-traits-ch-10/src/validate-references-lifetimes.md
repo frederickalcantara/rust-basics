@@ -279,18 +279,6 @@ The `main` function here creates an instance of the `ImportantExcept` struct tha
 Every reference has a lifetime and that we need to specify lifetime parameters for functions or structs that use references.
 
 ```
-fn first_word(s: &str) -> &str {
-    let bytes = s.as_bytes();
-
-    for (i, &item) in bytes.iter().enumerate() {
-        if item == b' ' {
-            return &s[0..i];
-        }
-    }
-
-    &s[..]
-}
-
 fn main() {
     let my_string = String::from("hello world");
 
@@ -306,14 +294,55 @@ fn main() {
     // this works too, without the slice syntax!
     let word = first_word(my_string_literal);
 }
+
+fn first_word(s: &str) -> &str {
+    let bytes = s.as_bytes();
+
+    for (i, &item) in bytes.iter().enumerate() {
+        if item == b' ' {
+            return &s[0..i];
+        }
+    }
+
+    &s[..]
+}
 ```
 
+The reason this function compiles without lifetime annotations is historical: in early versions (pre-1.0) of Rust, this code wouldn’t have compiled because every reference needed an explicit lifetime.
 
+At the time, the function signature would have been written like this: 
 
+```
+fn first_word<'a>(s: &'a str) -> &'a str {}
+```
 
+Automatically accounting for lifetime annotations into the compiler's code would allow the borrow to infer the lifetimes in these situations and wouldn't need explicit annotations. 
 
+This piece of Rust history is relevant because it’s possible that more deterministic patterns will emerge and be added to the compiler. In the future, even fewer lifetime annotations might be required.
 
+The patterns programmed into Rust's analysis of reference are called the **lifetime elision rules**. 
+These aren't rules per se, rather a set of edge cases that the compiler will consider. 
+If our code fits these cases, then we don't need to write the lifetimes explicitly. 
 
+The elision rules don't provide full inference. 
+
+If Rust deterministically applies the rules but there's still ambiguity as to what lifetimes those references have, the compiler won't guess what the lifetime of the remaining references should be. 
+In this case, instead of guessing, the compiler will give us an error that we can resolve by adding the lifetime annotations that specify how the references relate to each other. 
+
+Lifetimes on function or method parameters are called **input lifetimes** 
+Lifetimes on return values are called **output lifetimes**. 
+
+The compiler uses 3 rules to figure out what lifetimes references have when there aren't explicit: 
+
+1. Input lifetimes
+2. Output lifetimes
+3. Output lifetimes
+
+If the compiler gets to the end of the 3 rules and there are still references for which it can't figure out lifetimes, the compiler will stop with an error. 
+
+These rules apply to `fn` definitions as well as `impl` blocks. 
+
+The first rule is that 
 
 
 
