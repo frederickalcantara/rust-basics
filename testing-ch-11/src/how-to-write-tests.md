@@ -358,3 +358,449 @@ Because `larger.width` is 8 and `smaller.width` is 5, the comparison of the widt
 
 A common way to test functionality is to compare the result of the code under test to the value we expect the code to return to make sure they're equal. 
 
+We could do this useing the `assert!` macro and passing it an expression using the `==` operator. 
+
+However, this is such a common test that the standard library provides a pair of macros - `assert_eq!` and `assert_ne!` - to perform this test easier. 
+
+These macros compare two arguments for equality or inequality. 
+They'll also print the two values if the assertion fails, which makes it easier to see **why** the test failed;
+Conversely, the `assert!` macro only indicates that it got a `false` value for the `==` expression, no the values that led to the `false` value.
+
+Example: Testing the function `add_two` using the `assert_eq!` macro
+
+File - `src/lib.rs`
+
+```
+pub fn add_two(a: i32) -> i32 {
+    a + 2
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn it_adds_two() {
+        assert_eq!(4, add_two(2));
+    }
+}
+```
+
+Test Output: 
+
+```
+$ cargo test
+   Compiling adder v0.1.0 (file:///projects/adder)
+    Finished test [unoptimized + debuginfo] target(s) in 0.58s
+     Running unittests (target/debug/deps/adder-92948b65e88960b4)
+
+running 1 test
+test tests::it_adds_two ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+   Doc-tests adder
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+```
+
+The first argument we gave to the `assert_eq!` macro, `4`, is equal to the result of calling `add_two(2)`. 
+The line for the test is `test tests::it_adds_two ... ok`, and the `ok` text indicates that the test passed. 
+
+Example: Introducing a bug that would cause the `assert_eq!` test to fail. 
+
+```
+pub fn add_two(a: i32) -> i32 {
+    a + 3
+}
+```
+
+Result of what happens when we test it with the same `assert_eq!` test case:
+
+```
+$ cargo test
+   Compiling adder v0.1.0 (file:///projects/adder)
+    Finished test [unoptimized + debuginfo] target(s) in 0.61s
+     Running unittests (target/debug/deps/adder-92948b65e88960b4)
+
+running 1 test
+test tests::it_adds_two ... FAILED
+
+failures:
+
+---- tests::it_adds_two stdout ----
+thread 'main' panicked at 'assertion failed: `(left == right)`
+  left: `4`,
+ right: `5`', src/lib.rs:11:9
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+
+
+failures:
+    tests::it_adds_two
+
+test result: FAILED. 0 passed; 1 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+error: test failed, to rerun pass '--lib'
+```
+
+The test caught the bug, the `it_adds_two` test failed, displaying the message `assertion failed: '(left == right)'` and shows that `left` was `4` and `right` was `5`. 
+This message helps us start debugging, it means that the `left` argument to `assert_eq!` was `4` but the right argument where we had `add_two(2)` was `5`, 
+
+In some languages and test frameworks, the parameters to the functions that assert two values are equal are called `expected` and `actual`, and the order in which we specify the arguments matters. 
+
+However, in Rust, they're called `left` and `right`, and the order in which we specify the value we expect and the value that the code under the test produces doesn't matter. 
+
+The `assert_ne!` macro will pass if the two values we give it aren't equal and fail if they are equal. 
+The macro is most useful for cases when we're not sure what a value **will** be, but we know what the value definitely **won't** be if our code is functioning as intended. 
+
+<ins>Example for `assert_ne!` will be useful: If we're testing a function that is guaranteed to change its input in some way, but the way in which the input is changed depends on the day of the week that we run our tests, the best thing to assert might be that the output of the function is not equal to the input.</ins>
+
+The `assert_eq!` and `assert_ne!` macros use the operators `==` and `!=`. 
+When the assertions fail, these macros print their arguments using debug formatting, which means the values being compared must implement the `PartialEq` and `Debug` trais. 
+All of the primitive types and most of the standard library types implement these traits. 
+
+For structs and enums that we define, we'll need to implement `PartialEq` to assert that values of those types are equal or not equal. We'll need to implement `Debug` to print the values when the assertion fails. 
+
+
+## Adding Custom Failure Messages
+
+We can also add a custom message to be printed with the failure message as optional arguments to the `assert!`, `assert_eq!`, and `assert_ne!` macros. 
+Any arguments specified after the one required to `assert!` or the two required arguments to `assert_eq!` and `assert_ne!` are passed along to the `format!` macro, allows us to pass a format string that contains `{}` placeholders and values to go in these placeholders. 
+
+Custom messages are useful to document what an assertion means; when a test fails, we'll have a better idea of what the problem is with the code. 
+
+Example: A function that greets people by name and we want to test that the name we pass into the function appears in the output
+
+File - `src/lib.rs`
+
+```
+pub fn greeting(name: &str) -> String {
+    format!("Hello {}!", name)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn greeting_contains_name() {
+        let result = greeting("Carol");
+        assert!(result.contains("Carol"));
+    }
+}
+```
+
+The requirements for the  program haven’t been agreed upon yet, and we’re pretty sure the `Hello` text at the beginning of the greeting will change. 
+We decided we don’t want to have to update the test when the requirements change, so instead of checking for exact equality to the value returned from the `greeting` function, we’ll just assert that the output contains the text of the input parameter.
+
+Example: Introducing a bug into the code by changing `greeting` to not include `name` to see what the failure looks like 
+
+```
+pub fn greeting(name: &str) -> String {
+    String::from("Hello!")
+}
+```
+
+Test output as a result of the failure
+
+```
+$ cargo test
+   Compiling greeter v0.1.0 (file:///projects/greeter)
+    Finished test [unoptimized + debuginfo] target(s) in 0.91s
+     Running unittests (target/debug/deps/greeter-170b942eb5bf5e3a)
+
+running 1 test
+test tests::greeting_contains_name ... FAILED
+
+failures:
+
+---- tests::greeting_contains_name stdout ----
+thread 'main' panicked at 'assertion failed: result.contains(\"Carol\")', src/lib.rs:12:9
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+
+
+failures:
+    tests::greeting_contains_name
+
+test result: FAILED. 0 passed; 1 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+error: test failed, to rerun pass '--lib'
+```
+
+The result indicates that the assertion failed and which line the assertion is on. 
+A better failure message would print the value we got from the `greeting` function. 
+
+Example: Changing the test function by giving it a custom failure message made from a string format string with a placeholder filled in with the actual value we got from the `greeting` function
+
+```
+#[test]
+fn greeting_contains_name() {
+    let result = greeting("Carol");
+    assert!(
+        result.contains("Carol"),
+        "Greeting did not contain name, value was `{}`",
+        result
+    );
+}
+```
+
+Failure test output
+
+```
+$ cargo test
+   Compiling greeter v0.1.0 (file:///projects/greeter)
+    Finished test [unoptimized + debuginfo] target(s) in 0.93s
+     Running unittests (target/debug/deps/greeter-170b942eb5bf5e3a)
+
+running 1 test
+test tests::greeting_contains_name ... FAILED
+
+failures:
+
+---- tests::greeting_contains_name stdout ----
+thread 'main' panicked at 'Greeting did not contain name, value was `Hello!`', src/lib.rs:12:9
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+
+
+failures:
+    tests::greeting_contains_name
+
+test result: FAILED. 0 passed; 1 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+error: test failed, to rerun pass '--lib'
+```
+
+We can see the value we actually got in the test output, which would help us debug what happened instead of what we were expecting to happen.
+
+
+## Checking for Panics with `should_panic`
+
+In addition to checking that our code returns the correct values we expect, it's also important to check that our code handles error conditions as we expect. 
+
+Example: Consider the `Guess` type. Other code that uses `Guess` depends on the guarantee that `Guess` instances will contain only values between 1 and 100. 
+
+We can write a test that ensures that attempting to create a `Guess` instance with a value outside that range panics. 
+
+We do this by adding another attribute, `should_panic`, to our test function. This attribute makes a test pass if the code inside the function panics; the test will fail if the code inside the function doesn't panic. 
+
+Code Example: A test that checks that the error conditions of `Gues::new` happen when we expect them to
+
+File - `src/lib.rs`
+
+```
+pub struct Guess { 
+    value: i32
+}
+
+impl Guess {
+    pub fn new(value: i32) -> Guess {
+        if value < 1 || value > 100 {
+            panic!("Guess value must be between 1 and 100, got {}.", value);
+        }
+
+        Guess { value }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    #[should_panic]
+    fn greater_than_100() {
+        Guess::new(200);
+    }
+}
+```
+
+We place the #[should_panic] attribute after the #[test] attribute and before the test function it applies to. Let’s look at the result when this test passes:
+
+```
+$ cargo test
+   Compiling guessing_game v0.1.0 (file:///projects/guessing_game)
+    Finished test [unoptimized + debuginfo] target(s) in 0.58s
+     Running unittests (target/debug/deps/guessing_game-57d70c3acb738f4d)
+
+running 1 test
+test tests::greater_than_100 - should panic ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+   Doc-tests guessing_game
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+```
+
+This looks good, we can introduce a bug in our code by removing the condition that the `new` function will panic if the value is greater than 100. 
+
+```
+impl Guess {
+    pub fn new(value: i32) -> Guess {
+        if value < 1 {
+            panic!("Guess value must be between 1 and 100, got {}.", value);
+        }
+
+        Guess { value }
+    }
+}
+```
+
+When we run the test, it will fail
+
+```
+$ cargo test
+   Compiling guessing_game v0.1.0 (file:///projects/guessing_game)
+    Finished test [unoptimized + debuginfo] target(s) in 0.62s
+     Running unittests (target/debug/deps/guessing_game-57d70c3acb738f4d)
+
+running 1 test
+test tests::greater_than_100 - should panic ... FAILED
+
+failures:
+
+---- tests::greater_than_100 stdout ----
+note: test did not panic as expected
+
+failures:
+    tests::greater_than_100
+
+test result: FAILED. 0 passed; 1 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+error: test failed, to rerun pass '--lib'
+```
+
+We don’t get a very helpful message in this case, but when we look at the test function, we see that it’s annotated with `#[should_panic]`. The failure we got means that the code in the test function did not cause a panic.
+
+Tests that use `should_panic` can be imprecise because they only indicate that the code has caused some panic. 
+A `should_panic` test would pass even if the test panics for a different reason from the one we were expecting to happen. 
+To make `should_panic` tests more precise, we can add an optional `expected` parameter to the `should_panic` attribute. 
+
+The test harness will make sure that the failure message contains the provided text. 
+
+Example: Testing that a condition will cause a `panic!` with a particular panic message
+
+Code Example: Consider the modified code for `Guess` where the `new` function panics with different messages depending on whether the value is too small or too large. 
+
+File - `src/lib.rs`
+
+```
+// --snip--
+impl Guess {
+    pub fn new(value: i32) -> Guess {
+        if value < 1 {
+            panic!(
+                "Guess value must be greater than or equal to 1, got {}.",
+                value
+            );
+        } else if value > 100 {
+            panic!(
+                "Guess value must be less than or equal to 100, got {}.",
+                value
+            );
+        }
+
+        Guess { value }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    #[should_panic(expected = "Guess value must be less than or equal to 100")]
+    fn greater_than_100() {
+        Guess::new(200);
+    }
+}
+```
+
+The test will pass because the value we put in the `should_panic` attribute's `expected` parameter is a substring of the message that the `Guess::new` function panics with. 
+
+We could have specified the entire panic message that we expect. We can also choose to specify in the expected parameter for `should_panic` depends on how much of the panic message is unique or dynamic and how precise we want our test to be.
+
+Example: Checking to see what happens when a `should_panic` test with an `expected` message fails. 
+
+Code Example: Introducing a bug into our code by swapping the bodies of the `if value < 1` and the else `if value > 100` blocks:
+
+```
+if value < 1 {
+    panic!(
+        "Guess value must be less than or equal to 100, got {}.",
+        value
+    );
+} else if value > 100 {
+    panic!(
+        "Guess value must be greater than or equal to 1, got {}.",
+        value
+    );
+}
+```
+
+The test output failing with the according debugging information
+
+```
+$ cargo test
+   Compiling guessing_game v0.1.0 (file:///projects/guessing_game)
+    Finished test [unoptimized + debuginfo] target(s) in 0.66s
+     Running unittests (target/debug/deps/guessing_game-57d70c3acb738f4d)
+
+running 1 test
+test tests::greater_than_100 - should panic ... FAILED
+
+failures:
+
+---- tests::greater_than_100 stdout ----
+thread 'main' panicked at 'Guess value must be greater than or equal to 1, got 200.', src/lib.rs:13:13
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+note: panic did not contain expected string
+      panic message: `"Guess value must be greater than or equal to 1, got 200."`,
+ expected substring: `"Guess value must be less than or equal to 100"`
+
+failures:
+    tests::greater_than_100
+
+test result: FAILED. 0 passed; 1 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+error: test failed, to rerun pass '--lib'
+```
+
+The failure message indicates that the test did indeed panic as we expected, but the panic message didn't include the expected string `'Guess value must be less than or equal to 100'`. 
+The panic message that we did get in this case was `Guess value must be greater than or equal to 1, got 200`.
+
+
+## Using `Result<T, E>` in Tests
+
+We've mostly written tests that panic when they fail. 
+
+We can also write tests that use `Result<T, E>`. 
+
+Here is the test from the first example rewritten to use `Result<T, E>` and return an `Err` instead of panicking: 
+
+```
+#[cfg(test)]
+mod tests {
+    #[test]
+    fn it_works() -> Result<(), String> {
+        if 2 + 2 == 4 {
+            Ok(())
+        } else {
+            Err(String::from("two plus two does not equal four"))
+        }
+    }
+}
+```
+
+The `it_works` function now has a return type, `Result<(), String>`. 
+In the body of the function, rather than calling the `assert_eq!` macro, we return `Ok(())` when the test passes and an `Err` when a `String` inside when the test fails. 
+
+Writing test so they return a `Result<T, E>` enables us to use the question mark operator in the body of tests, which can be a convenient way to write tests that should fail if any operation within them returns an `Err` variant. 
+
+We can't use the `#[should_panic]` annotation on tests that use `Result<T, E>`. To assert that an operation returns an `Err` variant, **don't** use the qustion mark operator on the `Result<T, E>` value. 
+Instead, we should use `assert!(value.is_err())`. 
+
