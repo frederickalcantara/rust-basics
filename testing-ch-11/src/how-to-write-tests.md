@@ -182,3 +182,179 @@ The summary line displays at the end: overall, our test result is `FAILED`. We h
 
 ## Checking Results with the `assert!` Macro 
 
+The `assert!` macro, provided by the standard library, is useful when we want to ensure that some condition in a test evaluates to `true`. 
+
+We give the `assert` macro an argument that evaluates to a Boolean. 
+If the value is `true`, `assert!` does nothing and the test passes. 
+If the value if `false`, the `assert!` macro calls the `panic!` macro, which causes the test to fail. 
+
+Using the `assert!` macro helps us check that our code is functioning in the way we intend. 
+
+Example: Using the `Rectangle` struct and its `can_hold` method. 
+
+File - `src/lib.rs`
+
+```
+#[derive(Debug)]
+struct Rectangle {
+    width: u32,
+    height: u32,
+}
+
+impl Rectangle {
+    fn can_hold(&self, other: &Rectangle) -> bool {
+        self.width > other.width && self.height > other.height
+    }
+}
+```
+
+The `can_hold` method return a Boolean, which makes it a perfect case for the `assert!` macro. 
+
+Example: Test for `can_hold` that checks whether a larger rectangle can indeed hold a smaller rectangle
+
+File - `src/lib.rs`
+
+```
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn larger_can_hold_smaller() {
+        let larger = Rectangle {
+            width: 8,
+            height: 7,
+        };
+        let smaller = Rectangle {
+            width: 5,
+            height: 1,
+        };
+
+        assert!(larger.can_hold(&smaller));
+    }
+}
+```
+
+<ins>Note: that we’ve added a new line inside the `tests` module: `use super::*;`. 
+The `tests` module is a regular module that follows the usual visibility rules</ins>
+
+Because the `tests` module is an inner module, we need to bring the code under test in the outer module into the scope of the inner module. 
+We use a glob here so anything we define in the outer module is available to this `tests` module. 
+
+Test output: 
+
+```
+$ cargo test
+   Compiling rectangle v0.1.0 (file:///projects/rectangle)
+    Finished test [unoptimized + debuginfo] target(s) in 0.66s
+     Running unittests (target/debug/deps/rectangle-6584c4561e48942e)
+
+running 1 test
+test tests::larger_can_hold_smaller ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+   Doc-tests rectangle
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+```
+
+Example: We're going to add another test in which we asset that a smaller rectangle cannot hold a larger rectangle. 
+
+```
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn larger_can_hold_smaller() {
+        // --snip--
+    }
+
+    #[test]
+    fn smaller_cannot_hold_larger() {
+        let larger = Rectangle {
+            width: 8,
+            height: 7,
+        };
+        let smaller = Rectangle {
+            width: 5,
+            height: 1,
+        };
+
+        assert!(!smaller.can_hold(&larger));
+    }
+}
+```
+
+We're going to add another function in which we need to negate the result that result before we pass it to the `assert!` macro. 
+The test will pass because we added a produces a false negative. 
+
+```
+$ cargo test
+   Compiling rectangle v0.1.0 (file:///projects/rectangle)
+    Finished test [unoptimized + debuginfo] target(s) in 0.66s
+     Running unittests (target/debug/deps/rectangle-6584c4561e48942e)
+
+running 2 tests
+test tests::larger_can_hold_smaller ... ok
+test tests::smaller_cannot_hold_larger ... ok
+
+test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+   Doc-tests rectangle
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+```
+
+Both tests pass, but we'll now see what happens when we introduce bugs in our code. 
+
+Example: Changing the implementation of the `can_hold` method by replacing the greater than sign with a less than sign when it compares the widths.
+
+```
+impl Rectangle {
+    fn can_hold(&self, other: &Rectangle) -> bool {
+        self.width < other.width && self.height > other.height
+    }
+}
+```
+
+Running `cargo test` will give an error: 
+
+```
+$ cargo test
+   Compiling rectangle v0.1.0 (file:///projects/rectangle)
+    Finished test [unoptimized + debuginfo] target(s) in 0.66s
+     Running unittests (target/debug/deps/rectangle-6584c4561e48942e)
+
+running 2 tests
+test tests::larger_can_hold_smaller ... FAILED
+test tests::smaller_cannot_hold_larger ... ok
+
+failures:
+
+---- tests::larger_can_hold_smaller stdout ----
+thread 'main' panicked at 'assertion failed: larger.can_hold(&smaller)', src/lib.rs:28:9
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+
+
+failures:
+    tests::larger_can_hold_smaller
+
+test result: FAILED. 1 passed; 1 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+error: test failed, to rerun pass '--lib'
+```
+
+The test caught the bug. 
+Because `larger.width` is 8 and `smaller.width` is 5, the comparison of the widths in `can_hold` now returns `false`: 8 is not less than 5.
+
+
+## Testing Equality with the `assert_eq!` and the `assert_ne!` Macros
+
+A common way to test functionality is to compare the result of the code under test to the value we expect the code to return to make sure they're equal. 
+
